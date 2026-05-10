@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TripStatus {
+  DRAFT
+  PLANNED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String
+  avatar       String?
+  bio          String?
+  role         Role     @default(USER)
+  language     String   @default("en")
+  savedCities  Json     @default("[]")
+  preferences  Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  trips Trip[]
+  notes Note[]
+
+  @@map("users")
+}
+
+model Trip {
+  id          String     @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  coverImage  String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      TripStatus @default(DRAFT)
+  isPublic    Boolean    @default(false)
+  shareToken  String?    @unique
+  tags        String[]   @default([])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stops        Stop[]
+  budget       Budget?
+  packingItems PackingItem[]
+  notes        Note[]
+
+  @@map("trips")
+}
+
+model Destination {
+  id            String  @id @default(cuid())
+  name          String
+  country       String
+  region        String?
+  continent     String?
+  imageUrl      String?
+  description   String?
+  popularity    Int     @default(0)
+  estimatedCost Float?
+  currency      String  @default("USD")
+  timezone      String?
+  lat           Float?
+  lng           Float?
+
+  stops Stop[]
+
+  @@map("destinations")
+}
+
+model Stop {
+  id            String    @id @default(cuid())
+  tripId        String
+  destinationId String
+  order         Int       @default(0)
+  startDate     DateTime?
+  endDate       DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  trip        Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  destination Destination @relation(fields: [destinationId], references: [id])
+  activities  Activity[]
+  tripNotes   Note[]
+
+  @@map("stops")
+}
+
+model Activity {
+  id          String  @id @default(cuid())
+  stopId      String
+  name        String
+  description String?
+  category    String  @default("General")
+  cost        Float?
+  duration    Int? // minutes
+  time        String?
+  location    String?
+  imageUrl    String?
+  order       Int     @default(0)
+
+  stop Stop @relation(fields: [stopId], references: [id], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+model Budget {
+  id          String @id @default(cuid())
+  tripId      String @unique
+  totalBudget Float  @default(0)
+  currency    String @default("USD")
+  expenses    Json   @default("[]")
+  categories  Json   @default("{}")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@map("budgets")
+}
+
+model PackingItem {
+  id       String  @id @default(cuid())
+  tripId   String
+  name     String
+  category String  @default("General")
+  packed   Boolean @default(false)
+  quantity Int     @default(1)
+  notes    String?
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@map("packing_items")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  tripId    String
+  userId    String
+  stopId    String?
+  title     String?
+  content   String
+  mood      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trip Trip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stop Stop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
+
+  @@map("notes")
+}
